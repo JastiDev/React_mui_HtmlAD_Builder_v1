@@ -121,6 +121,33 @@ export default function App() {
     }, 1000);
   };
 
+  const handleSaveTemplate = () => {
+    let title = prompt("Please enter the template title:", "New Template");
+    if (title == null || title == "") {
+      //do nothing
+    } else {
+      let theData = {
+        title: title,
+        width: width,
+        height: height,
+        arrItem: arrItem
+      };
+
+      let adContent = JSON.stringify(theData);
+      fetch('https://newspaperads.in/api/adbuilder' + "/template", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          adContent
+        })
+      }).then(resp => resp.json()).then(resp => {
+        console.log(resp);
+      });
+    }
+  }
+
   const onClickAdd = e => {
     let newItem;
     if (theItem) {
@@ -214,7 +241,18 @@ export default function App() {
           color="primary"
           size="large"
           startIcon={<SaveIcon />}
+          onClick={handleSaveTemplate}
+        >
+          template
+        </Button>
+
+        <Button
+          variant="contained"
+          color="primary"
+          size="large"
+          startIcon={<SaveIcon />}
           onClick={onClickSave}
+          style={{ marginLeft: '50px' }}
         >
           HTML
         </Button>
@@ -306,6 +344,7 @@ export default function App() {
   );
 }
 
+
 const DivTestDPI = () => (
   <div
     id="testDPI"
@@ -318,3 +357,4 @@ const DivTestDPI = () => (
     }}
   ></div>
 );
+
