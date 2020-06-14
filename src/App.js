@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import { TextField, Button, IconButton } from '@material-ui/core';
+import { TextField, Button, IconButton, CircularProgress } from '@material-ui/core';
+import axios from 'axios';
 
 import { DPI0, W0, H0, newId, px2num, make_Item_0, url2family } from './common';
 
@@ -22,6 +23,8 @@ export default function App() {
 
   const [arrItem, setArrItem] = useState([]);
   const [theItem, setTheItem] = useState();
+
+  const [isBusyPdf, setIsBusyPdf] = useState(false);
 
   useEffect(() => {
     let dpi_x = document.getElementById('testDPI').offsetWidth;
@@ -88,6 +91,13 @@ export default function App() {
   const onClickSave = e => {
     let exportHtml = makeExportHtml();
 
+    exportHtml = exportHtml.replace(/\s{2,}/g, '')   // <-- Replace all consecutive spaces, 2+
+      .replace(/%/g, '%25')     // <-- Escape %
+      .replace(/&/g, '%26')     // <-- Escape &
+      .replace(/#/g, '%23')     // <-- Escape #
+      .replace(/"/g, '%22')     // <-- Escape "
+      .replace(/'/g, '%27');    // <-- Escape ' (to be 100% safe)
+
     var downloadLink;
     var dataType = 'text/html';
     let filename = 'index.html';
@@ -106,20 +116,61 @@ export default function App() {
     }
   };
 
-  const onClickSaveAsPDF = event => {
+  const onClickSaveAsPDF = async (event) => {
+    setIsBusyPdf(true);
     let exportHtml = makeExportHtml();
+    let filename = "Ad.html";
 
-    let newWindow = window.open('', '', 'width=1000, height=600');
-    let doc = newWindow.document.open();
-    doc.write(exportHtml);
-    doc.close();
+    try {
+      let blob1 = new Blob(["\ufeff", exportHtml], { type: "text/html" });
+      let file = new File([blob1], filename);
 
-    var timerId = setInterval(() => {
-      newWindow.print();
-      clearInterval(timerId);
-      newWindow.close();
-    }, 1000);
-  };
+      const formData = new FormData();
+      formData.append("file", file);
+
+      let resp = await axios.post(`https://newspaperads.in/api/adbuilder/generatead?width=${width / 96}&height=${height / 96}`, formData, {
+        headers: { "content-type": "multipart/form-data" },
+      });
+
+      downloadPdf(resp.data);
+    } catch (err) { console.log(err); }
+
+  }
+
+
+  const downloadPdf = (data) => {
+    console.log(data);
+    // var blob = new Blob([data], { type: 'application/pdf' });
+    // // IE doesn't allow using a blob object directly as link href
+    // // instead it is necessary to use msSaveOrOpenBlob
+    // if (window.navigator && window.navigator.msSaveOrOpenBlob) {
+    //   window.navigator.msSaveOrOpenBlob(blob);
+    //   return;
+    // }
+
+    // // For other browsers:
+    // // Create a link pointing to the ObjectURL containing the blob.
+    // const url = window.URL.createObjectURL(blob);
+    // var link = document.createElement('a');
+    // link.href = url;
+    // link.download = theData.title + '.pdf';
+    // link.click();
+    // setTimeout(function () {
+    //   // For Firefox it is necessary to delay revoking the ObjectURL
+    //   window.URL.revokeObjectURL(url);
+    // }, 100);
+
+    let filename = "Ad.pdf";
+    let downloadLink = document.createElement("a");
+    document.body.appendChild(downloadLink);
+
+    downloadLink.href = data;
+    downloadLink.download = filename;
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    setIsBusyPdf(false);
+  }
+
 
   const handleSaveTemplate = () => {
     let title = prompt("Please enter the template title:", "New Template");
@@ -263,8 +314,10 @@ export default function App() {
           startIcon={<SaveIcon />}
           onClick={onClickSaveAsPDF}
           style={{ marginLeft: '50px' }}
+          disabled={isBusyPdf}
         >
           PDF
+         {isBusyPdf && <CircularProgress size={14} />}
         </Button>
       </div>
 
